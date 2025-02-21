@@ -26,9 +26,8 @@ impl ApplicationHandler for App {
                 event_loop.exit();
             },
             WindowEvent::RedrawRequested => {
-
                 self.window.as_ref().unwrap().request_redraw();
-            }
+            },
             _ => (),
         }
     }
@@ -38,8 +37,6 @@ fn main() {
     let event_loop = EventLoop::new().unwrap();
 
     event_loop.set_control_flow(ControlFlow::Poll);
-
-    event_loop.set_control_flow(ControlFlow::Wait);
 
     let mut app = App::default();
 
