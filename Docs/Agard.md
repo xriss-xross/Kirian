@@ -31,6 +31,43 @@ specialise in graphics and other may be compute operations.
 
 ---
 
+So once we have our valid queue family we use it to create our device interfact to the physical
+device. Slightly confusing names but in such a verbose graphics API like Vulkan, something are bound
+to clash. It is at this stage that we can now ask (very politely) the GPU to perform some
+operations.
+
+## Memory allocation
+
+Before creating buffers in memory (where I got to with OpenGL) I have to allocate some memory for
+said memory buffers. From my experience in languages such as C and Zig, I have not found this very
+fun even if Zig tried to make it as much of an intutitive experience as possible. For now, defaults
+will do nicely. In the `memory_allocator`, `device.clone()` is passed as a paramater. Cloning the
+Arc is not as expensive as the actual object itself. Device has been declared as an `Arc<device>`
+meaning it is handled by the `Arc` smart pointer allowing for shared ownership (and still no
+garbage collector in sight!).
+
+## Buffers
+
+Sending information to the GPU is relatively slow. To perform this task more efficiently, a memory
+buffer is created to send information into less frequent, larger chunks. There are sevel **memory
+types** to chose from each being suited to their own tasks just like queues. To chose memory, we
+provide a **memory type filter** which informs the memory allocator which memory we prefer and which
+memory we prefer to avoid. Some examples:
+- `MemoryTypeFilter::PREFER_DEVICE | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE`
+    for continuously uploading data to the GPU
+- `MemoryTypeFilter::PREFER_DEVICE`
+    increased performance but more complex data access from the CPU
+Either side of the `|` are some filters and in the second example, we even only have 1 filter. To
+create a buffer, I will first allocate memory for it in memory accesible by the CPU. In the buffer,
+notice that the first parameter is an `Arc` of that memory allocator we created earlier. We then
+specify what we are using the buffer for, and then we create the information of the allocation. The
+`memory_type_filter` is looking for `HOST_SEQUENTIAL_WRITE` memory which is good for sending a
+steady stream of data. In future I may change this to accomodate rapidly changing matricies for
+example with `HOST_RANDOM_ACCESS`. The final paramater is what we actualy want to send. In this case
+we will send some of the most improtant information ever conceived:
+>The Ultimate Question of Life, the Universe, and Everything - Douglas Adams
+42.
+
 
 
 ## Windows
