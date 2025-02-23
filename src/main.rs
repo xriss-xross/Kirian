@@ -3,21 +3,27 @@ fn main() {
 
     use vulkano::VulkanLibrary;
     use vulkano::instance::{
-        Instance, InstanceCreateFlags, InstanceCreateInfo
+        Instance, InstanceCreateFlags, InstanceCreateInfo,
     };
 
     use vulkano::device::QueueFlags;
     use vulkano::device::{
-        Device, DeviceCreateInfo, QueueCreateInfo
+        Device, DeviceCreateInfo, QueueCreateInfo,
     };
     
     use vulkano::memory::allocator::{
-        StandardMemoryAllocator, AllocationCreateInfo, MemoryTypeFilter
+        StandardMemoryAllocator, AllocationCreateInfo, MemoryTypeFilter,
     };
     use vulkano::buffer::{
-        Buffer, BufferCreateInfo, BufferUsage, //BufferContents
+        Buffer, BufferCreateInfo, BufferUsage,
     };
 
+    use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+    use vulkano::command_buffer:: {
+        AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo,
+    };
+
+    use vulkano::sync:: {self, GpuFuture};
 
     let lib = VulkanLibrary::new().expect("Vulkan not installed");
 
@@ -58,37 +64,88 @@ fn main() {
     )
     .expect("Creation of device: failed");
 
-    let _queue = queues.next().unwrap();
+    let queue = queues.next().unwrap();
     
     let memory_allocator = Arc::new(
         StandardMemoryAllocator::new_default(device.clone()));
 
-    /*  For example use with from_data
-    #[derive(BufferContents)]
-    #[repr(C)]
-    struct UniverseStruct {
-        a: u8,
-    }
+    let command_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(
+        device.clone(),
+        Default::default(),
+    ));
 
-    let data = UniverseStruct { a: 42 };
-    */
+    let mut builder = AutoCommandBufferBuilder::primary(
+        command_buffer_allocator.clone(),
+        queue_family_index,
+        CommandBufferUsage::OneTimeSubmit,
+    )
+    .unwrap();
 
-    let universe_universe = (0..42).map(|_| 42u8);
-    
-    // from_iter is for unknown sizes of data
-    let _buffer = Buffer::from_iter(
+
+    // a triangle
+    let src_content: Vec<f32> = vec![
+        -0.5, -0.5, 0.0,
+         0.5, -0.5, 0.0,
+         0.0,  0.5, 0.0
+    ];
+
+    let dst_content: Vec<f32> = vec![
+         0.0,  0.0, 0.0,
+         0.0,  0.0, 0.0, 
+         0.0,  0.0, 0.0,
+    ];
+
+    // triangle source and destination buffers
+    let triangle_src = Buffer::from_iter(
         memory_allocator.clone(),
         BufferCreateInfo {
-            usage: BufferUsage::UNIFORM_BUFFER,
+            usage: BufferUsage::TRANSFER_SRC,
             ..Default::default()
         },
         AllocationCreateInfo {
             memory_type_filter:
-                MemoryTypeFilter::PREFER_DEVICE | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+                MemoryTypeFilter::PREFER_HOST | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
-            },
-            universe_universe
+        },
+        src_content
     )
-    .unwrap();
+    .expect("Creating triangle vertices source buffer: failed");
     
+    let triangle_dst = Buffer::from_iter(
+        memory_allocator.clone(),
+        BufferCreateInfo {
+            usage: BufferUsage::TRANSFER_DST,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            memory_type_filter:
+                MemoryTypeFilter::PREFER_HOST | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+                ..Default::default()
+        },
+        dst_content
+    )
+    .expect("Creating triangle verticies destination buffer: failed");
+
+
+    builder
+    .copy_buffer(CopyBufferInfo::buffers(triangle_src.clone(), triangle_dst.clone()))
+    .unwrap();
+
+    let command_buffer = builder.build().unwrap();
+
+    let future = sync::now(device.clone())
+        .then_execute(queue.clone(), command_buffer)
+        .unwrap()
+        .then_signal_fence_and_flush()
+        .unwrap();
+
+    future.wait(None).unwrap();
+
+    let read_src_content = triangle_src.read().unwrap();
+    let read_dst_content = triangle_dst.read().unwrap();
+    
+    // check if the content has actually been copied
+    assert_eq!(&*read_src_content, &*read_dst_content);
+    println!("Copying: succeeded")
+
 }

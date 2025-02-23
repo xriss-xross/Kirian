@@ -88,6 +88,49 @@ buffer, not just one measly struct. Vulkano provides `from_data` to do this. The
 is that if the amount of data we want to pass into the buffer needs to be known. If it isn't we must
 use `from_iter` constructer which takes an iterator as a parameter instead of the data itself.
 
+## Operation on 2 buffers
+
+In line with the [Vulkano Book](https://vulkano.rs/03-buffer-creation/02-example-operation.html),
+an easy operation for proof of concept is copying data from a source to a destination. In my case
+I will use a vector of f32 values which would make a triangle. The source vector has normalised
+screen coordinates and the destination vector is just a vector of the same size with a bunch of 0
+values. And just like buffers, you need an allocator for command buffers. That's right, just like
+the data we send to the GPU, sending commands one by one would also be relatively inefficient.
+Therefore, we also need a `command_buffer`.
+
+The Vulkano Book possibly makes a mistake in its documentation when it introduces the default
+command buffer builder. The code I have adopted is below
+
+```rs
+let command_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(
+    device.clone(),
+    Default::default(),
+));
+
+let mut builder = AutoCommandBufferBuilder::primary(
+    command_buffer_allocator.clone(),
+    queue_family_index,
+    CommandBufferUsage::OneTimeSubmit,
+)
+.unwrap();
+```
+
+The book says that `&command_buffer_allocator` should be passed as a refrence with the actual
+`command_buffer_allocator` not even being created as an `Arc`. The solution I have adopted wraps
+the allocator in an `Arc` to by used **polymorphicly** and we pass a clone instead of a refrence
+as `AutoCommandBufferBuilder` expects `Arc<dyn CommandBufferAllocator>`. After these changes, we are
+now creating a *builder* and then we... well build it. We're once again cloning an `Arc` which is
+recourse efficient and the `queue_family_index` is needed to tell the command buffer which queue
+family it will be performing operations on.
+
+Finally we send the commands in the command buffer to the GPU. We sync with the GPU and wait for the
+GPU to be ready to execute some instructions. We save the future to await for a signal from the GPU
+that it has indeed completed its operation. From other research into what other people have done
+with Vulkan, the `...fence...` keyword hidden auspiciosuly among everything is deceptively vital.
+At a very oversimplified and high level, fences make sure that operations don't interupt each other.
+They can do much more but they are a sort of hard stop. We then `read()` and `unwrap()` what now
+lies in GPU memory and check to make sure that the data is infact identical (the result of a copy).
+
 # Windows
 
 Every good graphics engine needs a window. To start this project I will be using
