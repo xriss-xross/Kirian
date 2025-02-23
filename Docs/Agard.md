@@ -1,4 +1,4 @@
-# Check out me history (of errors)
+# Project Start
 
 ## Hello World!
 
@@ -68,9 +68,27 @@ we will send some of the most improtant information ever conceived:
 >The Ultimate Question of Life, the Universe, and Everything - Douglas Adams
 42.
 
+---
 
+### Plain old data (POD)
 
-## Windows
+Vulkan works with raw memory. This means that it doesn't understand high level Rust structs or
+enums. Information needs to be laid out in a way that Vulkan can understand. POD refers to
+simplified data that Vulkan can understand with no hidden complexities such as pointers. A `struct`
+containing the data I want to pass is now deriving `BufferContents` which is a more convenient way
+of using `bytemuck` which in itself tell the compiler that a Rust type is safe to be interpreted as
+a sequence of bytes. When working with simple types such as `i32` or `u8` I could get away with
+using `bytemuch` but especially when working with more complex types, i need to make sure I'm using
+one of these *marker traits* to ensure that data is laid out for Vulkan to use.
+
+---
+
+However, despite these giant leaps, most of the time we want to pass a series of values inside of a
+buffer, not just one measly struct. Vulkano provides `from_data` to do this. The problem with this
+is that if the amount of data we want to pass into the buffer needs to be known. If it isn't we must
+use `from_iter` constructer which takes an iterator as a parameter instead of the data itself.
+
+# Windows
 
 Every good graphics engine needs a window. To start this project I will be using
 [winit]("https://crates.io/crates/winit"), the crate for **cross-platform window creation**. First

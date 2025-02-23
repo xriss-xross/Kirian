@@ -15,8 +15,9 @@ fn main() {
         StandardMemoryAllocator, AllocationCreateInfo, MemoryTypeFilter
     };
     use vulkano::buffer::{
-        Buffer, BufferCreateInfo, BufferUsage
+        Buffer, BufferCreateInfo, BufferUsage, //BufferContents
     };
+
 
     let lib = VulkanLibrary::new().expect("Vulkan not installed");
 
@@ -62,8 +63,20 @@ fn main() {
     let memory_allocator = Arc::new(
         StandardMemoryAllocator::new_default(device.clone()));
 
-    let data: u8 = 42;
-    let _buffer = Buffer::from_data(
+    /*  For example use with from_data
+    #[derive(BufferContents)]
+    #[repr(C)]
+    struct UniverseStruct {
+        a: u8,
+    }
+
+    let data = UniverseStruct { a: 42 };
+    */
+
+    let universe_universe = (0..42).map(|_| 42u8);
+    
+    // from_iter is for unknown sizes of data
+    let _buffer = Buffer::from_iter(
         memory_allocator.clone(),
         BufferCreateInfo {
             usage: BufferUsage::UNIFORM_BUFFER,
@@ -74,8 +87,8 @@ fn main() {
                 MemoryTypeFilter::PREFER_DEVICE | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
-            data
+            universe_universe
     )
-    .expect("Creation of buffer: failed");
+    .unwrap();
     
 }
