@@ -177,7 +177,8 @@ $\frac{envocations}{group size} = \frac{42,000}{64} = 656.25$
 You can't have a fraction of a work group so $657$ groups. $657 * 64 = 42,048$ leaving one group
 mostly empty. This is of course inefficient at a far larger scale. If I wanted to take this approach
 I would likely have to also add a check to the compute shader so it doesn't operate on the useless 
-data. 
+data.
+
 ---
 `layout(local_size_x = 60, local_size_y = 1, local_size_z = 1) in;`
 

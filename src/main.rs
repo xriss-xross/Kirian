@@ -62,8 +62,7 @@ fn main() {
         StandardMemoryAllocator::new_default(device.clone()));
     // the meaning of life
     let meaning_iter = 0..42000u32;
-    // triangle source and destination buffers
-    let _meaning_buffer = Buffer::from_iter(
+    let meaning_buffer = Buffer::from_iter(
         memory_allocator.clone(),
         BufferCreateInfo {
             usage: BufferUsage::STORAGE_BUFFER, // buffer will be used in a compute shader
@@ -111,7 +110,7 @@ fn main() {
     )
     .unwrap();
 
-    let _compute_pipeline = ComputePipeline::new(
+    let compute_pipeline = ComputePipeline::new(
         device.clone(),
         None,
         ComputePipelineCreateInfo::stage_layout(stage, layout),
