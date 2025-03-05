@@ -131,6 +131,13 @@ At a very oversimplified and high level, fences make sure that operations don't 
 They can do much more but they are a sort of hard stop. We then `read()` and `unwrap()` what now
 lies in GPU memory and check to make sure that the data is infact identical (the result of a copy).
 
+## Operation on many values in one buffer
+
+In order to perform operations at scale on a larger data set, I cannot just pass an array into the
+GPU. The data must be treated as one buffer upon which one operation is going to performed on... for
+all values. To do this, we create many worker groups ideally of sizes between 32 and 64. 
+
+
 # Windows
 
 Every good graphics engine needs a window. To start this project I will be using
