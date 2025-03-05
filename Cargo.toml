@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 vulkano = "0.34.0"
-vulkano-shaders = "0.33.0"
+vulkano-shaders = "0.34.0"
 shaderc = "0.8"
 
 # Reduce perfoamance artifacts from debug

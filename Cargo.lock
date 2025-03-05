@@ -7,7 +7,7 @@ name = "Kirian"
 version = "0.1.0"
 dependencies = [
  "shaderc",
- "vulkano 0.34.1",
+ "vulkano",
  "vulkano-shaders",
 ]
 
@@ -182,12 +182,6 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
-
-[[package]]
-name = "hashbrown"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
@@ -200,22 +194,12 @@ checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "indexmap"
-version = "1.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
-dependencies = [
- "autocfg",
- "hashbrown 0.12.3",
-]
-
-[[package]]
-name = "indexmap"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown",
 ]
 
 [[package]]
@@ -515,7 +499,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap",
  "toml_datetime",
  "winnow",
 ]
@@ -534,48 +518,11 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vk-parse"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c6a0bda9bbe6b9e50e6456c80aa8fe4cca3b21e4311a1130c41e4915ec2e32a"
-dependencies = [
- "xml-rs",
-]
-
-[[package]]
-name = "vk-parse"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81086c28be67a8759cd80cbb3c8f7b520e0874605fc5eb74d5a1c9c2d1878e79"
 dependencies = [
  "xml-rs",
-]
-
-[[package]]
-name = "vulkano"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e1f15eeb9d93a05eb3c237332a10806eac1eb82444e54485bfcc1859c483c23"
-dependencies = [
- "ahash",
- "ash",
- "bytemuck",
- "core-graphics-types",
- "crossbeam-queue",
- "half",
- "heck",
- "indexmap 1.9.3",
- "libloading 0.7.4",
- "objc",
- "once_cell",
- "parking_lot",
- "proc-macro2",
- "quote",
- "regex",
- "serde",
- "serde_json",
- "smallvec",
- "thread_local",
- "vk-parse 0.8.0",
 ]
 
 [[package]]
@@ -591,7 +538,7 @@ dependencies = [
  "crossbeam-queue",
  "half",
  "heck",
- "indexmap 2.7.1",
+ "indexmap",
  "libloading 0.8.6",
  "objc",
  "once_cell",
@@ -604,7 +551,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "thread_local",
- "vk-parse 0.12.0",
+ "vk-parse",
  "vulkano-macros",
 ]
 
@@ -622,17 +569,17 @@ dependencies = [
 
 [[package]]
 name = "vulkano-shaders"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f8cf18e9becbc6d39f1c39e26bcf69546c93989553eb5748cd734a8a697a6e5"
+checksum = "d1f63401297565d74afb96e9add12587d8e46235140cee325a8eb6ba4602f4ee"
 dependencies = [
  "ahash",
  "heck",
  "proc-macro2",
  "quote",
  "shaderc",
- "syn 1.0.109",
- "vulkano 0.33.0",
+ "syn 2.0.98",
+ "vulkano",
 ]
 
 [[package]]
