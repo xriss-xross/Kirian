@@ -19,8 +19,21 @@ use vulkano::buffer::{
 
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
-use vulkano::pipeline::{ComputePipeline, PipelineLayout, PipelineShaderStageCreateInfo};
+use vulkano::pipeline::{
+    Pipeline, ComputePipeline, PipelineLayout,
+    PipelineShaderStageCreateInfo, PipelineBindPoint
+};
+use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 
+use vulkano::command_buffer::allocator::{
+    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo, 
+};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage};
+
+use vulkano::sync:: {self, GpuFuture};
+// During development is quite useful since I won't immediately be using variables
+#[allow(unused)]
 fn main() {
     let lib = VulkanLibrary::new().expect("Vulkan not installed");
     let instance = Instance::new(
@@ -36,15 +49,16 @@ fn main() {
         .next()  // chose the first device if any
         .expect("No devices available");
         // it can happen that no devices support Vulkan
+
     let queue_family_index = physical_device
         .queue_family_properties()
         .iter()
         .enumerate()
         .position(|(_queue_family_index, queue_family_properties)| {
             queue_family_properties.queue_flags.contains(QueueFlags::GRAPHICS)
-        })
-        .expect("Finding graphical queue family: failed") as u32;
+        }).expect("Finding graphical queue family: failed") as u32;
         // as u32 because vulkano expects queue_family_index as a u32 not a usize
+
     let (device, mut queues) = Device::new(
         physical_device,
         DeviceCreateInfo {
@@ -54,12 +68,13 @@ fn main() {
             }],
             ..Default::default()
         },
-    )
-    .expect("Creation of device: failed");
-    let _queue = queues.next().unwrap();
+    ).expect("Creation of device: failed");
+
+    let queue = queues.next().unwrap();
     
     let memory_allocator = Arc::new(
         StandardMemoryAllocator::new_default(device.clone()));
+
     // the meaning of life
     let meaning_iter = 0..42000u32;
     let meaning_buffer = Buffer::from_iter(
@@ -74,8 +89,7 @@ fn main() {
                 ..Default::default()
         },
         meaning_iter,
-    )
-    .expect("Creating triangle vertices source buffer: failed");
+    ).expect("Creating triangle vertices source buffer: failed");
 
     mod cs {
         vulkano_shaders::shader!{
@@ -91,14 +105,13 @@ fn main() {
     
                 void main() {
                     uint idx = gl_GlobalInvocationID.x;
-                    buf.data[idx] *= 12;
+                    buf.data[idx] *= 42;
                 }
             ",
         }
     }
     let shader = cs::load(device.clone()).expect("failed to create shader module");
     // load() is created when the GLSL is compiled at runtime
-
 
     let cs = shader.entry_point("main").unwrap();
     let stage = PipelineShaderStageCreateInfo::new(cs);
@@ -107,13 +120,70 @@ fn main() {
         PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
             .into_pipeline_layout_create_info(device.clone())
             .unwrap(),
-    )
-    .unwrap();
+    ).unwrap();
 
     let compute_pipeline = ComputePipeline::new(
         device.clone(),
         None,
         ComputePipelineCreateInfo::stage_layout(stage, layout),
-    )
-    .expect("Compute pipeline creation: failed");
+    ).expect("Compute pipeline creation: failed");
+
+    let descriptor_set_allocator =
+        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
+    let pipeline_layout = compute_pipeline.layout();
+    let descriptor_set_layouts = pipeline_layout.set_layouts();
+
+    let descriptor_set_layout_index = 0;
+    let descriptor_set_layout = descriptor_set_layouts
+        .get(descriptor_set_layout_index)
+        .unwrap();
+    let descriptor_set = PersistentDescriptorSet::new(
+        &descriptor_set_allocator,
+        descriptor_set_layout.clone(),
+        [WriteDescriptorSet::buffer(0, meaning_buffer.clone())],
+        [],
+    ).unwrap();
+
+    let command_buffer_allocator = StandardCommandBufferAllocator::new(
+        device.clone(),
+        StandardCommandBufferAllocatorCreateInfo::default(),
+    );
+
+    let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
+        &command_buffer_allocator,
+        queue.queue_family_index(),
+        CommandBufferUsage::OneTimeSubmit,
+    ).unwrap();
+
+    let work_group_counts = [700, 1, 1];
+
+    command_buffer_builder
+        .bind_pipeline_compute(compute_pipeline.clone())
+        .unwrap()
+        .bind_descriptor_sets(
+            PipelineBindPoint::Compute,
+            compute_pipeline.layout().clone(),
+            descriptor_set_layout_index as u32,
+            descriptor_set,
+        )
+        .unwrap()
+        .dispatch(work_group_counts)
+        .unwrap();
+
+    let command_buffer = command_buffer_builder.build().unwrap();
+
+    let future = sync::now(device.clone())
+        .then_execute(queue.clone(), command_buffer)
+        .unwrap()
+        .then_signal_fence_and_flush()
+        .unwrap();
+
+    future.wait(None).unwrap();
+
+    let content = meaning_buffer.read().unwrap();
+    for (n, val) in content.iter().enumerate() {
+        assert_eq!(*val, n as u32 * 42);
+    }
+    
+    println!("Everything succeeded!");
 }
