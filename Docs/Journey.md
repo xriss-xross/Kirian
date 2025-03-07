@@ -131,6 +131,8 @@ At a very oversimplified and high level, fences make sure that operations don't 
 They can do much more but they are a sort of hard stop. We then `read()` and `unwrap()` what now
 lies in GPU memory and check to make sure that the data is infact identical (the result of a copy).
 
+# Compute pipeline
+
 ## Operation on many values in one buffer
 
 In order to perform operations at scale on a larger data set, I cannot just pass an array into the
@@ -204,10 +206,72 @@ void main() {
 Just like C *and* Rust the entry point of our GLSL code is a main function which is about to be
 called 42,000 times. The content of the buffer we created earlier is accessed with and index `i`.
 One of the few unsafe things that vulkano allows us to do is create a
-[memory race](./Concepts/Memory-Race.md)!
+[data race](./Concepts/Data-Race.md)!
 
 Finally at runtime we can create a compute pipeline object. First thing's first, create a pipeline
 layout. Vulkan will do this for us. These may be supoptimal but fine for personal projects.
+
+## Descriptor sets
+
+In GLSL, the buffer the shader will use was declared like this:
+```glsl
+layout(set = 0, binding = 0) buffer Data {
+    uint data[];
+} buf;
+```
+The buffers that a compute pipeline needs to access must be bound to what are called *descriptors*.
+A descriptor or array of descriptors is assigned to a **binding**. Binding**s** can then be grouped
+into *descriptor sets* in `layout(set = 0, binding = 0)`.
+
+![descriptor diagram](./images/descriptor.png)
+
+In addition to this, we of course need to create an allocator. When implementing a 
+`PersistentDescriptorSet` we attatch it to a result buffer wrapped in a `WriteDescriptorSet`. This
+object will describe how the buffer will be written. In order to create the descriptor set the
+layout it is targetting must be known. `.layout()` is called on the "Pipeline" trait (in this case
+we are acessing the `compute_pipeline`). The layout specific to the pass is then fetched
+`.set_layouts().get(0)`. Once a descriptor set has been created you can use it in other pipelines. 
+You just have to make sure that the bindings' type matches those the pipelines' shaders expect.
+
+> ### NOTE:
+> Vulkan requires that a pipeline is provided whenever a descriptor set is created. You cannot
+> create a descriptor set independently
+
+At this point we finally have a compute pipeline and a descriptor bound to it. Now we can perform
+operations using them.
+
+## Dispatch
+
+Finally we can create the *command buffer* that will execute the compute pipeline. This is called
+a **dispatch** operation.
+```rust
+command_buffer_builder
+    .bind_pipeline_compute(compute_pipeline.clone())
+    .unwrap()
+    .bind_descriptor_sets(
+        PipelineBindPoint::Compute,
+        compute_pipeline.layout().clone(),
+        descriptor_set_layout_index as u32,
+        descriptor_set,
+    )
+    .unwrap()
+    .dispatch(work_group_counts)
+    .unwrap();
+```
+The pipeline and descriptor sets are bound indicating the type of set the layout and the descriptor
+sets we are going to use. The number of sets could actually be many but we only have one so the
+index is 0. The `dispatch()` method indicated the worker groups as declared
+`let work_group_counts = [700, 1, 1];`. Then as before in the far more simple execution we submit
+the command buffer:
+```rust
+let future = sync::now(device.clone())
+    .then_execute(queue.clone(), command_buffer)
+    .unwrap()
+    .then_signal_fence_and_flush()
+    .unwrap();
+
+future.wait(None).unwrap();
+```
 
 # Windows
 
