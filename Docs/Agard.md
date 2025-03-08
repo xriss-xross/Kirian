@@ -80,3 +80,22 @@ exchange I gain a much more pleasant work space without ugly red underlined code
 }
 ```
 In my `settings.json` does the job and my workflow can return to normal.
+
+## Compute Pipeline #3
+```
+assertion `left == right` failed
+  left: 12
+ right: 42
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: process didn't exit successfully: `target\debug\Kirian.exe` (exit code: 101)
+```
+Within my GLSL code I mistakenly used the book's example values. In the Vulkano book, values are
+multiplied by 12 but I was multiplying by 42 for personal examples. Thus my GLSL macro need to be 
+slightly modified ~~`buf.data[idx] *= 12`~~ -> `buf.data[idx] *= 42`
+is cha
+```glsl
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    buf.data[idx] *= 42;
+}
+```

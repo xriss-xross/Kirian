@@ -29,9 +29,14 @@ use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo, 
 };
-use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage};
+use vulkano::command_buffer::{
+    ClearColorImageInfo, AutoCommandBufferBuilder, CommandBufferUsage
+};
 
 use vulkano::sync:: {self, GpuFuture};
+
+use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
+use vulkano::format::{Format, ClearColorValue};
 // During development is quite useful since I won't immediately be using variables
 #[allow(unused)]
 fn main() {
@@ -89,8 +94,42 @@ fn main() {
                 ..Default::default()
         },
         meaning_iter,
-    ).expect("Creating triangle vertices source buffer: failed");
+    ).expect("Creating meaning to 42,000: failed");
 
+    let image = Image::new(
+        memory_allocator.clone(),
+        ImageCreateInfo{
+            image_type: ImageType::Dim2d,
+            format: Format::R8G8B8A8_UNORM,
+            extent: [1024, 1024, 1],
+            usage: ImageUsage::TRANSFER_DST | ImageUsage::TRANSFER_SRC,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    let command_buffer_allocator = StandardCommandBufferAllocator::new(
+        device.clone(),
+        StandardCommandBufferAllocatorCreateInfo::default(),
+    );
+
+    let mut builder = AutoCommandBufferBuilder::primary(
+        &command_buffer_allocator,
+        queue.queue_family_index(),
+        CommandBufferUsage::OneTimeSubmit,
+    ).unwrap();
+
+    builder
+        .clear_color_image(ClearColorImageInfo {
+            clear_value: ClearColorValue::Float([0.0, 0.0, 1.0, 1.0]),
+            ..ClearColorImageInfo::image(image.clone())
+        }).unwrap();
+
+    // glsl macro
     mod cs {
         vulkano_shaders::shader!{
             ty: "compute",
@@ -113,6 +152,7 @@ fn main() {
     let shader = cs::load(device.clone()).expect("failed to create shader module");
     // load() is created when the GLSL is compiled at runtime
 
+    // main entry point
     let cs = shader.entry_point("main").unwrap();
     let stage = PipelineShaderStageCreateInfo::new(cs);
     let layout = PipelineLayout::new(
@@ -122,6 +162,7 @@ fn main() {
             .unwrap(),
     ).unwrap();
 
+    // a pipeline containing GLSL code
     let compute_pipeline = ComputePipeline::new(
         device.clone(),
         None,
@@ -180,10 +221,5 @@ fn main() {
 
     future.wait(None).unwrap();
 
-    let content = meaning_buffer.read().unwrap();
-    for (n, val) in content.iter().enumerate() {
-        assert_eq!(*val, n as u32 * 42);
-    }
-    
-    println!("Everything succeeded!");
+
 }

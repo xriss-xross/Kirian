@@ -273,6 +273,25 @@ let future = sync::now(device.clone())
 future.wait(None).unwrap();
 ```
 
+# Images
+
+## Image creation
+
+First we pass the dimensions of the image and the desired format. Images also need to be created
+with flags that describe how the image will be used but interestingly
+[they don't need to be initialised](./Concepts/Images.md). `extent: [1024, 1024, 1],` are the
+dimensions for example but notice that in the image we haven't given it any information.
+
+## Image clearing
+
+Unlike buffers, images cannot be directly modified by writing to their memory. To read or write to
+an image, we need to access said image through the GPU. We are going to fill an image with a
+specific colour. We call filling an image with colour *clearing* an image. `ClearColorValue`
+indicates the colour we want to clear the image with. The image we created earlier is in
+`R8G8B8A8_UNORM` format meaings that the RGB colours have a bit depth of 8 and are unsigned,
+normalised numbers. (instead of 0->255 the colours are translated to 0.0->1.0). So
+`ClearColorValue::Float([0.0, 0.0, 1.0, 1.0])` will turn the `1.0`s into 255.
+
 # Windows
 
 Every good graphics engine needs a window. To start this project I will be using
