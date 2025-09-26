@@ -31,7 +31,7 @@ specialise in graphics and other may be compute operations.
 
 ---
 
-So once we have our valid queue family we use it to create our device interfact to the physical
+So once we have our valid queue family we use it to create our device interface to the physical
 device. Slightly confusing names but in such a verbose graphics API like Vulkan, something are bound
 to clash. It is at this stage that we can now ask (very politely) the GPU to perform some
 operations.

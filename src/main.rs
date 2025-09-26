@@ -17,21 +17,14 @@ use vulkano::buffer::{
     Buffer, BufferCreateInfo, BufferUsage,
 };
 
-use vulkano::pipeline::compute::ComputePipelineCreateInfo;
-use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
-use vulkano::pipeline::{
-    Pipeline, ComputePipeline, PipelineLayout,
-    PipelineShaderStageCreateInfo, PipelineBindPoint
-};
-use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo, 
 };
 use vulkano::command_buffer::{
-    ClearColorImageInfo, AutoCommandBufferBuilder, CommandBufferUsage
+    AutoCommandBufferBuilder, ClearColorImageInfo, CommandBufferUsage, CopyImageToBufferInfo
 };
+
+use image::{ImageBuffer, Rgba};
 
 use vulkano::sync:: {self, GpuFuture};
 
@@ -46,23 +39,23 @@ fn main() {
         InstanceCreateInfo {
             flags:InstanceCreateFlags::ENUMERATE_PORTABILITY,
             ..Default::default()
-        },).expect("Instance creation: failed");
+        },).expect("Erorr: failed to create instance");
     
     let physical_device = instance
         .enumerate_physical_devices()
-        .expect("Enumeration of devices: failed")
+        .expect("Error: failed to enumerate devices")
         .next()  // chose the first device if any
-        .expect("No devices available");
+        .expect("Error: no supported devices found");
         // it can happen that no devices support Vulkan
 
+    // find a queue (threads for GPU) that supports graphical operations
     let queue_family_index = physical_device
         .queue_family_properties()
         .iter()
         .enumerate()
         .position(|(_queue_family_index, queue_family_properties)| {
             queue_family_properties.queue_flags.contains(QueueFlags::GRAPHICS)
-        }).expect("Finding graphical queue family: failed") as u32;
-        // as u32 because vulkano expects queue_family_index as a u32 not a usize
+        }).expect("Error: failed to find a graphical queue family") as u32;
 
     let (device, mut queues) = Device::new(
         physical_device,
@@ -73,7 +66,7 @@ fn main() {
             }],
             ..Default::default()
         },
-    ).expect("Creation of device: failed");
+    ).expect("Error: failed to create device");
 
     let queue = queues.next().unwrap();
     
@@ -81,7 +74,7 @@ fn main() {
         StandardMemoryAllocator::new_default(device.clone()));
 
     // the meaning of life
-    let meaning_iter = 0..42000u32;
+    let meaning_iter = 0..42u8;
     let meaning_buffer = Buffer::from_iter(
         memory_allocator.clone(),
         BufferCreateInfo {
@@ -94,7 +87,7 @@ fn main() {
                 ..Default::default()
         },
         meaning_iter,
-    ).expect("Creating meaning to 42,000: failed");
+    ).expect("Error: failed to find meaning");
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -112,6 +105,22 @@ fn main() {
     )
     .unwrap();
 
+    let image_buffer = Buffer::from_iter(
+        memory_allocator.clone(),
+        BufferCreateInfo {
+            usage: BufferUsage::TRANSFER_DST,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            memory_type_filter:
+            MemoryTypeFilter::PREFER_HOST | MemoryTypeFilter::HOST_RANDOM_ACCESS,
+            ..Default::default()
+        },
+        (0..1024 * 1024 * 4).map(|_| 0u8),
+    ).expect("Error: failed to create image buffer");
+
+
+
     let command_buffer_allocator = StandardCommandBufferAllocator::new(
         device.clone(),
         StandardCommandBufferAllocatorCreateInfo::default(),
@@ -125,93 +134,25 @@ fn main() {
 
     builder
         .clear_color_image(ClearColorImageInfo {
-            clear_value: ClearColorValue::Float([0.0, 0.0, 1.0, 1.0]),
+            // don't be such a brat
+            clear_value: ClearColorValue::Float([0.541, 0.808, 0.0, 1.0]),
             ..ClearColorImageInfo::image(image.clone())
-        }).unwrap();
-
-    // glsl macro
-    mod cs {
-        vulkano_shaders::shader!{
-            ty: "compute",
-            src: r"
-                #version 460
-    
-                layout(local_size_x = 60, local_size_y = 1, local_size_z = 1) in;
-    
-                layout(set = 0, binding = 0) buffer Data {
-                    uint data[];
-                } buf;
-    
-                void main() {
-                    uint idx = gl_GlobalInvocationID.x;
-                    buf.data[idx] *= 42;
-                }
-            ",
-        }
-    }
-    let shader = cs::load(device.clone()).expect("failed to create shader module");
-    // load() is created when the GLSL is compiled at runtime
-
-    // main entry point
-    let cs = shader.entry_point("main").unwrap();
-    let stage = PipelineShaderStageCreateInfo::new(cs);
-    let layout = PipelineLayout::new(
-        device.clone(),
-        PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
-            .into_pipeline_layout_create_info(device.clone())
-            .unwrap(),
-    ).unwrap();
-
-    // a pipeline containing GLSL code
-    let compute_pipeline = ComputePipeline::new(
-        device.clone(),
-        None,
-        ComputePipelineCreateInfo::stage_layout(stage, layout),
-    ).expect("Compute pipeline creation: failed");
-
-    let descriptor_set_allocator =
-        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
-    let pipeline_layout = compute_pipeline.layout();
-    let descriptor_set_layouts = pipeline_layout.set_layouts();
-
-    let descriptor_set_layout_index = 0;
-    let descriptor_set_layout = descriptor_set_layouts
-        .get(descriptor_set_layout_index)
-        .unwrap();
-    let descriptor_set = PersistentDescriptorSet::new(
-        &descriptor_set_allocator,
-        descriptor_set_layout.clone(),
-        [WriteDescriptorSet::buffer(0, meaning_buffer.clone())],
-        [],
-    ).unwrap();
+        })
+        .unwrap()
+        .copy_image_to_buffer(
+            CopyImageToBufferInfo::image_buffer(
+                image.clone(),
+                image_buffer.clone()
+            )).unwrap();
 
     let command_buffer_allocator = StandardCommandBufferAllocator::new(
         device.clone(),
         StandardCommandBufferAllocatorCreateInfo::default(),
     );
 
-    let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &command_buffer_allocator,
-        queue.queue_family_index(),
-        CommandBufferUsage::OneTimeSubmit,
-    ).unwrap();
-
     let work_group_counts = [700, 1, 1];
 
-    command_buffer_builder
-        .bind_pipeline_compute(compute_pipeline.clone())
-        .unwrap()
-        .bind_descriptor_sets(
-            PipelineBindPoint::Compute,
-            compute_pipeline.layout().clone(),
-            descriptor_set_layout_index as u32,
-            descriptor_set,
-        )
-        .unwrap()
-        .dispatch(work_group_counts)
-        .unwrap();
-
-    let command_buffer = command_buffer_builder.build().unwrap();
+    let command_buffer = builder.build().unwrap();
 
     let future = sync::now(device.clone())
         .then_execute(queue.clone(), command_buffer)
@@ -221,5 +162,12 @@ fn main() {
 
     future.wait(None).unwrap();
 
+    let buffer_content = image_buffer.read().unwrap();
+    let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
+        1024, 1024, &buffer_content[..]
+    ).unwrap();
+
+    image.save("image.png").unwrap();
+    println!("Everything succeeded!");
 
 }
