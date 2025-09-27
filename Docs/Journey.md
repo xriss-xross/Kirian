@@ -290,7 +290,39 @@ specific colour. We call filling an image with colour *clearing* an image. `Clea
 indicates the colour we want to clear the image with. The image we created earlier is in
 `R8G8B8A8_UNORM` format meaings that the RGB colours have a bit depth of 8 and are unsigned,
 normalised numbers. (instead of 0->255 the colours are translated to 0.0->1.0). So
-`ClearColorValue::Float([0.0, 0.0, 1.0, 1.0])` will turn the `1.0`s into 255.
+`ClearColorValue::Float([0.0, 0.0, 1.0, 1.0])` will turn the `1.0`s into 255. Now, we have the bits
+necessary to create an, albeit boring, image. We however see nothing. We need an output.
+
+## Exporting the result to a .png
+
+First we need the buffer. The image dimensions are 1024x1024 and each pixel in the image contains 4
+u8 bit values so $1024*1024*4$ is the size of the buffer.
+```rs
+let image_buffer = Buffer::from_iter(
+    ..., // parameters for a new buffer
+    ..., // parameters for a new memory allocator
+    (0..1024 * 1024 * 4).map(|_| 0u8), // number of elements
+).unwrap();
+```
+We also modify the builder from the previous section and add a copy operation. As this is a memory
+transfer operation, the image elements are not interpreted as floating point values:
+`clear_value: ClearColorValue::Float(` but rather the memory content is
+directly copied to the buffer `.copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(`
+```rs
+builder
+    ...
+    .copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(
+        image.clone(),
+        image_buffer.clone()
+    )).unwrap();
+```
+Now we need to turn this transfering memory into something - a PNG. Using the `image` crate, we
+create the main image type called ImageBuffer from a slice. Then we save the image and voila
+```rs
+let image = ImageBuffer::<Rgba<u8>, _>::from_raw(1024, 1024, &buffer_content[..]).unwrap();
+image.save("image.png").unwrap();
+```
+
 
 # Windows
 

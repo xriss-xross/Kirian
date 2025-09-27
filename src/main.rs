@@ -30,7 +30,7 @@ use vulkano::sync:: {self, GpuFuture};
 
 use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
 use vulkano::format::{Format, ClearColorValue};
-// During development is quite useful since I won't immediately be using variables
+
 #[allow(unused)]
 fn main() {
     let lib = VulkanLibrary::new().expect("Vulkan not installed");
@@ -73,21 +73,6 @@ fn main() {
     let memory_allocator = Arc::new(
         StandardMemoryAllocator::new_default(device.clone()));
 
-    // the meaning of life
-    let meaning_iter = 0..42u8;
-    let meaning_buffer = Buffer::from_iter(
-        memory_allocator.clone(),
-        BufferCreateInfo {
-            usage: BufferUsage::STORAGE_BUFFER, // buffer will be used in a compute shader
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            memory_type_filter:
-                MemoryTypeFilter::PREFER_DEVICE | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-        },
-        meaning_iter,
-    ).expect("Error: failed to find meaning");
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -116,10 +101,9 @@ fn main() {
             MemoryTypeFilter::PREFER_HOST | MemoryTypeFilter::HOST_RANDOM_ACCESS,
             ..Default::default()
         },
+        // *4 because not actually no. of bits but no. of elements
         (0..1024 * 1024 * 4).map(|_| 0u8),
     ).expect("Error: failed to create image buffer");
-
-
 
     let command_buffer_allocator = StandardCommandBufferAllocator::new(
         device.clone(),
@@ -134,23 +118,15 @@ fn main() {
 
     builder
         .clear_color_image(ClearColorImageInfo {
-            // don't be such a brat
+            // bumpin' that
             clear_value: ClearColorValue::Float([0.541, 0.808, 0.0, 1.0]),
             ..ClearColorImageInfo::image(image.clone())
         })
         .unwrap()
-        .copy_image_to_buffer(
-            CopyImageToBufferInfo::image_buffer(
-                image.clone(),
-                image_buffer.clone()
-            )).unwrap();
-
-    let command_buffer_allocator = StandardCommandBufferAllocator::new(
-        device.clone(),
-        StandardCommandBufferAllocatorCreateInfo::default(),
-    );
-
-    let work_group_counts = [700, 1, 1];
+        .copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(
+            image.clone(),
+            image_buffer.clone()
+        )).unwrap();
 
     let command_buffer = builder.build().unwrap();
 
@@ -159,15 +135,12 @@ fn main() {
         .unwrap()
         .then_signal_fence_and_flush()
         .unwrap();
-
     future.wait(None).unwrap();
 
     let buffer_content = image_buffer.read().unwrap();
+
     let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
         1024, 1024, &buffer_content[..]
     ).unwrap();
-
     image.save("image.png").unwrap();
-    println!("Everything succeeded!");
-
 }
