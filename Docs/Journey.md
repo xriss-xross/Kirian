@@ -273,7 +273,7 @@ let future = sync::now(device.clone())
 future.wait(None).unwrap();
 ```
 
-# Images
+# Simple images
 
 ## Image creation
 
@@ -322,7 +322,10 @@ create the main image type called ImageBuffer from a slice. Then we save the ima
 let image = ImageBuffer::<Rgba<u8>, _>::from_raw(1024, 1024, &buffer_content[..]).unwrap();
 image.save("image.png").unwrap();
 ```
+# Complex image
 
+In the vulkano book, a Mandelbrot fractal shader is demonstrated. I don't fully undetstand GLSL yet
+so instead, I decided to go for something simpler: a sine wave. 
 
 # Windows
 
