@@ -413,10 +413,8 @@ The sine wave results in some slightly thicker parts at the peaks and troughs. I
 why this is but this section is only really meant for demonstation purposes so I am not that fussed
 about it. These... *fragments?* are more a maths/GLSL problem than a vulkan problem so for now I
 will ignore.
-
 # [Graphics pipeline](./Concepts/Graphics-Pipeline.md)
-
-## Triangles, triangles, triangles
+## Vertex buffer
 The first part of drawing anything through the graphics pipeline is to describe the shape of the
 object. When working with graphics, the number one shape to work with is the triangle. Each triangle
 as composed by 3 verticies is connected by straight lines (unless working with curved triangles
@@ -451,9 +449,26 @@ let vertex_buffer = Buffer::from_iter(
     , vec![vertex1, vertex2, vertex3]
 ).expect("Error: failed to create vertex buffer");
 ```
+## Vertex shader
+We will now tell the GPU will pick each element from the vertex buffer one by one and call a vertex
+shader on each point. The source code for a vertex shader is pretty straight forward:
+```c
+#version 460
+
+// each vertex has an attribute named position and of type vec2
+layout(location = 0) in vec2 position;
+
+void main() {
+    /*
+    gl_Position is a special "magic" global variable that exists only in the context of a vertex
+    shader, the value of which must be set to the position of the vertex on the surface
+    */
+    gl_Position = vec4(position, 0.0, 1.0);
+}
+```
+## Fragment shader
 
 # Windows
-
 Every good graphics engine needs a window. To start this project I will be using
 [winit]("https://crates.io/crates/winit"), the crate for **cross-platform window creation**. First
 thing's first, create the `EventLoop` which acts as a 'context'. It initialises everything needed to
