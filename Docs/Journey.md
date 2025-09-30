@@ -510,6 +510,25 @@ Many games can use render passes in very complex names. Vulkan has support for b
 and those complex ones which is why this render pass can look scary; like many things in Vulkan the
 render pass is very verbose. It is made of **attatchments** and **passes** declaring one attatchment
 (`colour`) and one pass that will use `colour` as a single output.
+## Frame buffers
+To enter a render pass we call a **frame buffer**. Creating a frame buffer is typically done during
+the rendering process and it not a good idea to keep the objects alive between frames though it
+won't kill your performance to create and destroy a few frame buffers here and there.
+```rs
+let frame_buffer = Framebuffer::new(
+    render_pass.clone(),
+    FramebufferCreateInfo {
+        attachments: vec![view],
+        ..Default::default()
+    },
+).expect("Error: failed to create fame buffer");
+```
+We can now enter draw mode by calling the function `begin_render_pass` on the command buffer builder
+which takes a frame buffer, an enum and a Vec containing the colours to fill the attatchments with
+as parameters. Nothing yet to show. We are entering a render pass and just exiting again without
+using the draw command.
+## Creating the graphics pipeline
+
 # Windows
 Every good graphics engine needs a window. To start this project I will be using
 [winit]("https://crates.io/crates/winit"), the crate for **cross-platform window creation**. First
