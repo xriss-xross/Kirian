@@ -136,8 +136,7 @@ fn main() {
                 void main() {
                     // bumpin' that
                     f_color = vec4(0.541, 0.808, 0.0, 1.0);
-                }
-            ",
+                }",
         }
     }
 
@@ -235,6 +234,22 @@ fn main() {
             ..Default::default()
         }, vec![vertex1, vertex2, vertex3]
     ).expect("Error: failed to create vertex buffer");
+
+    let render_pass = vulkano::single_pass_renderpass!(
+        device.clone(),
+        attachments: {
+            color: {
+                format: Format::R8G8B8A8_UNORM,
+                samples: 1,
+                load_op: Clear,
+                store_op: Store,
+            },
+        },
+        pass: {
+            color: [color],
+            depth_stencil: {},
+        },
+    ).unwrap();
 
     let command_buffer_allocator = StandardCommandBufferAllocator::new(
         device.clone(),

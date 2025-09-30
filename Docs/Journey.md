@@ -480,7 +480,36 @@ void main() {
     // which is stored as the target colour we want to write to the image
     f_colour = vec4(0.541, 0.808, 0.0, 1.0);
 }
+```
+## Render passes
+In order to execute commands efficiently in parrallel we need to enter "rendering mode" by entering
+what is called  a **render pass**. A render pass designates the "rendering mode" we have to enter
+before we can add drawing commands to a command buffer and a kind of object that describes this
+rendering mode i.e. entering a render pass requires passing a render pass object. Say that 3 times
+fast.
+```rs
+let render_pass = vulkano::single_pass_renderpass!(
+    device.clone(),
+    attachments: {
+        colour: {
+            format: Format::R8G8B8A8_UNORM,
+            samples: 1,
+            // we want the GPU to clear the image when entering a pass
+            load_op: Clear,
+            // we want the GPU to save the image when done with a pass
+            store_op: Store,
+        },
+    },
+    pass: {
+        colour: [colour],
+        depth_stencil: {},
+    },
+).unwrap();
 ``` 
+Many games can use render passes in very complex names. Vulkan has support for both our simple case
+and those complex ones which is why this render pass can look scary; like many things in Vulkan the
+render pass is very verbose. It is made of **attatchments** and **passes** declaring one attatchment
+(`colour`) and one pass that will use `colour` as a single output.
 # Windows
 Every good graphics engine needs a window. To start this project I will be using
 [winit]("https://crates.io/crates/winit"), the crate for **cross-platform window creation**. First
