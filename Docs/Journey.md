@@ -406,7 +406,8 @@ let set = PersistentDescriptorSet::new(
 ```
 Then we create a buffer storing the image output. The command buffer contains a dispatch command
 and then we save the image. This all results in:
-![Sine wave](images/image.png)
+<img src="images/image.png" alt="sine wave" width="50%"/>
+
 The sine wave results in some slightly thicker parts at the peaks and troughs. I am not really sure
 why this is but this section is only really meant for demonstation purposes so I am not that fussed
 about it. These... *fragments?* are more a maths/GLSL problem than a vulkan problem so for now I
