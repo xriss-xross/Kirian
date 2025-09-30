@@ -414,6 +414,44 @@ why this is but this section is only really meant for demonstation purposes so I
 about it. These... *fragments?* are more a maths/GLSL problem than a vulkan problem so for now I
 will ignore.
 
+# [Graphics pipeline](./Concepts/Graphics-Pipeline.md)
+
+## Triangles, triangles, triangles
+The first part of drawing anything through the graphics pipeline is to describe the shape of the
+object. When working with graphics, the number one shape to work with is the triangle. Each triangle
+as composed by 3 verticies is connected by straight lines (unless working with curved triangles
+which I don't even want to think about). Beginning with a simple vertex struct to describe these
+points as vulkan uses coorinates not in pixels but considers any image having a height and width of
+2 (-1 -> 1) on both the X and Y axes remebering that the Y axis starts from -1 at the top of the
+image:
+
+```rs
+struct MyVertex {
+    #[format(R32G32_SFLOAT)]
+    position: [f32; 2],
+}
+```
+For my triangle I will be using the coordinates $(-0.5, 0.5), (0, -0.5), (0.5, 0.5)$. This
+translates to:
+```rs
+let vertex1 = MyVertex { position: [-0.5, 0.5] };
+let vertex2 = MyVertex { position: [ 0.0, -0.5] };
+let vertex3 = MyVertex { position: [ 0.5, 0.5] };
+```
+Buffers containing a collection of verticies is typically referred to as a **vertex buffer**. We
+know that this buffer will only store verticies so we give it the `VERTEX_BUFFER` flag.
+```rs
+let vertex_buffer = Buffer::from_iter(
+    memory_allocator.clone(),
+    BufferCreateInfo {
+        usage: BufferUsage::VERTEX_BUFFER,
+        ..Default::default()
+    },
+    ...
+    , vec![vertex1, vertex2, vertex3]
+).expect("Error: failed to create vertex buffer");
+```
+
 # Windows
 
 Every good graphics engine needs a window. To start this project I will be using

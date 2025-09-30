@@ -1,6 +1,6 @@
 use std::sync::Arc;
-
 use vulkano::VulkanLibrary;
+
 use vulkano::instance::{
     Instance, InstanceCreateFlags, InstanceCreateInfo,
 };
@@ -13,15 +13,17 @@ use vulkano::device::{
 use vulkano::memory::allocator::{
     StandardMemoryAllocator, AllocationCreateInfo, MemoryTypeFilter,
 };
+
+use vulkano::buffer::BufferContents;
 use vulkano::buffer::{
     Buffer, BufferCreateInfo, BufferUsage,
 };
 
-use vulkano::command_buffer::allocator::{
-    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo, 
-};
 use vulkano::command_buffer::{
     AutoCommandBufferBuilder, CommandBufferUsage, CopyImageToBufferInfo
+};
+use vulkano::command_buffer::allocator::{
+    StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo, 
 };
 
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
@@ -29,17 +31,17 @@ use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
 
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::{
     ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout, PipelineShaderStageCreateInfo,
 };
 
-use vulkano::sync:: {self, GpuFuture};
-
 use image::{ImageBuffer, Rgba};
-
-use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
 use vulkano::image::view::ImageView;
+use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
 use vulkano::format::Format;
+
+use vulkano::sync:: {self, GpuFuture};
 
 #[allow(unused)]
 fn main() {
@@ -174,6 +176,33 @@ fn main() {
         // *4 because not actually no. of bits but no. of elements
         (0..1024 * 1024 * 4).map(|_| 0u8),
     ).expect("Error: failed to create image buffer");
+
+    #[derive(BufferContents, Vertex)]
+    #[repr(C)]
+    struct MyVertex {
+        #[format(R32G32_SFLOAT)]
+        position: [f32; 2],
+    }
+
+    let vertex1 = MyVertex {
+        position: [-0.5, 0.5] };
+    let vertex2 = MyVertex {
+        position: [ 0.0, -0.5] };
+    let vertex3 = MyVertex {
+        position: [ 0.5, 0.5] };
+
+    let vertex_buffer = Buffer::from_iter(
+        memory_allocator.clone(),
+        BufferCreateInfo {
+            usage: BufferUsage::VERTEX_BUFFER,
+            ..Default::default()
+        }, 
+        AllocationCreateInfo {
+            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+            | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+            ..Default::default()
+        }, vec![vertex1, vertex2, vertex3]
+    ).expect("Error: failed to create vertex buffer");
 
     let command_buffer_allocator = StandardCommandBufferAllocator::new(
         device.clone(),
