@@ -110,7 +110,7 @@ fn main() {
             ",
         }
     }
-    
+
     mod vs {
         vulkano_shaders::shader! {
             ty: "vertex",
@@ -125,7 +125,25 @@ fn main() {
         }
     }
 
+    mod fs {
+        vulkano_shaders::shader! {
+            ty: "fragment",
+            src: r"
+                #version 460
+
+                layout(location = 0) out vec4 f_color;
+
+                void main() {
+                    // bumpin' that
+                    f_color = vec4(0.541, 0.808, 0.0, 1.0);
+                }
+            ",
+        }
+    }
+
     let shader = cs::load(device.clone()).expect("Error: failed to create shader module");
+    let vs = vs::load(device.clone()).expect("Error: failed to create vertex shader");
+    let fs = fs::load(device.clone()).expect("Error: failed to create fragment shader");
 
     let cs = shader.entry_point("main").unwrap();
     let stage = PipelineShaderStageCreateInfo::new(cs);

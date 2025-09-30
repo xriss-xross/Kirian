@@ -467,7 +467,20 @@ void main() {
 }
 ```
 ## Fragment shader
+After the vertex shader has run on each vertex the GPU determines which pixels of the target image
+are within the shape of the triangle. These pixels will then be modified. We then call the fragment
+shader - colouring and interpolating pixels. Again the source code is pretty simple:
+```c
+#version 460
 
+// declares an output named f_colour
+layout(location = 0) out vec4 f_colour;
+
+void main() {
+    // which is stored as the target colour we want to write to the image
+    f_colour = vec4(0.541, 0.808, 0.0, 1.0);
+}
+``` 
 # Windows
 Every good graphics engine needs a window. To start this project I will be using
 [winit]("https://crates.io/crates/winit"), the crate for **cross-platform window creation**. First

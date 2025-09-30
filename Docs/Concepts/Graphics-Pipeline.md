@@ -11,21 +11,21 @@ that the feeling will ever go away.
 
     <img src="../images/graphics pipeline/input assembler.png" alt="input assembler" width="25%"/>
     
-2. Vertex shader
+2. **Vertex shader**
 
     Run for every vertex and generally applies transformations to turn vertex positions from model
     space to screen space.
 
     <img src="../images/graphics pipeline/vertex shader.png" alt="input assembler" width="25%"/>
     
-3. Tessellation
+3. **Tessellation**
 
     Allows for subdivision of geometry based on certain rules to increase the mesh quality. Often
     used to make surfaces like brick walls and staircases look less flat when they are nearby.
 
     <img src="../images/graphics pipeline/tessellation.png" alt="input assembler" width="25%"/>
     
-4. Geometry shader
+4. **Geometry shader**
 
     Run on every primitive (triangle, line, point) and can discard it or output more primitives than
     came in. This is similar to the tessellation shader, but much more flexible. Not used much in
@@ -34,7 +34,7 @@ that the feeling will ever go away.
 
     <img src="../images/graphics pipeline/geometry shader.png" alt="input assembler" width="25%"/>
 
-5. Rasterisation
+5. **Rasterisation**
 
     Discretizes the primitives into fragments. These are the pixel elements that they fill on the
     framebuffer. Fragments falling outside the screen are discarded and attributes outputted by the
@@ -43,7 +43,7 @@ that the feeling will ever go away.
 
     <img src="../images/graphics pipeline/rasterisation.png" alt="input assembler" width="25%"/>
 
-6. Fragment shader
+6. **Fragment shader**
 
     Invoked for every fragment that survives and determines which framebuffer(s) the fragments are
     written to and with which color and depth values through the interpolated data from the vertex
@@ -51,7 +51,7 @@ that the feeling will ever go away.
 
     <img src="../images/graphics pipeline/fragment shader.png" alt="input assembler" width="25%"/>
 
-7. Colour blending
+7. **Colour blending**
 
     Applies operations to mix different fragments that map to the same pixel in the framebuffer.
     Fragments can simply overwrite each other, add up or be mixed based upon transparency.
