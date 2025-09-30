@@ -21,15 +21,25 @@ use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo, 
 };
 use vulkano::command_buffer::{
-    AutoCommandBufferBuilder, ClearColorImageInfo, CommandBufferUsage, CopyImageToBufferInfo
+    AutoCommandBufferBuilder, CommandBufferUsage, CopyImageToBufferInfo
 };
 
-use image::{ImageBuffer, Rgba};
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
+use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
+
+use vulkano::pipeline::compute::ComputePipelineCreateInfo;
+use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
+use vulkano::pipeline::{
+    ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout, PipelineShaderStageCreateInfo,
+};
 
 use vulkano::sync:: {self, GpuFuture};
 
+use image::{ImageBuffer, Rgba};
+
 use vulkano::image::{Image, ImageCreateInfo, ImageType, ImageUsage};
-use vulkano::format::{Format, ClearColorValue};
+use vulkano::image::view::ImageView;
+use vulkano::format::Format;
 
 #[allow(unused)]
 fn main() {
@@ -70,9 +80,54 @@ fn main() {
 
     let queue = queues.next().unwrap();
     
-    let memory_allocator = Arc::new(
-        StandardMemoryAllocator::new_default(device.clone()));
+    mod cs {
+        vulkano_shaders::shader! {
+            ty: "compute",
+            src: r"
+                #version 460
 
+                layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+                layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
+
+                void main() {
+                    vec2 norm_coordinates = (gl_GlobalInvocationID.xy + vec2(0.5)) / vec2(imageSize(img));
+
+                    // π to 15 digits sufficient for calculations within our solar system
+                    float x = norm_coordinates.x * 2 * 3.141592653589793;
+
+                    float y = 0.5 + 0.4 * sin(x * 1.0);
+
+                    float d = abs(norm_coordinates.y - y);
+
+                    float i = smoothstep(0.01, 0.0, d);
+
+                    vec4 to_write = vec4(vec3(i), 1.0);
+                    imageStore(img, ivec2(gl_GlobalInvocationID.xy), to_write);
+                }
+            ",
+        }
+    }
+
+    let shader = cs::load(device.clone()).expect("Error: failed to create shader module");
+
+    let cs = shader.entry_point("main").unwrap();
+    let stage = PipelineShaderStageCreateInfo::new(cs);
+    let layout = PipelineLayout::new(
+        device.clone(),
+        PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
+            .into_pipeline_layout_create_info(device.clone())
+            .unwrap(),
+    )
+    .unwrap();
+
+    let compute_pipeline = ComputePipeline::new(
+        device.clone(),
+        None,
+        ComputePipelineCreateInfo::stage_layout(stage, layout),
+    ).expect("Error: failed to create compute pipeline");
+
+    let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
 
     let image = Image::new(
         memory_allocator.clone(),
@@ -80,15 +135,30 @@ fn main() {
             image_type: ImageType::Dim2d,
             format: Format::R8G8B8A8_UNORM,
             extent: [1024, 1024, 1],
-            usage: ImageUsage::TRANSFER_DST | ImageUsage::TRANSFER_SRC,
+            usage: ImageUsage::TRANSFER_DST
+            | ImageUsage::TRANSFER_SRC
+            | ImageUsage::STORAGE,  // different from previous
             ..Default::default()
         },
         AllocationCreateInfo {
             memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
             ..Default::default()
         },
-    )
-    .unwrap();
+    ).expect("Error: failed to create image");
+
+    let view = ImageView::new_default(image.clone()).unwrap();
+
+    let descriptor_set_allocator =
+        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
+
+    let layout = compute_pipeline.layout().set_layouts().get(0).unwrap();
+
+    let set = PersistentDescriptorSet::new(
+        &descriptor_set_allocator,
+        layout.clone(),
+        [WriteDescriptorSet::image_view(0, view.clone())],
+        [],
+    ).unwrap();
 
     let image_buffer = Buffer::from_iter(
         memory_allocator.clone(),
@@ -117,16 +187,22 @@ fn main() {
     ).unwrap();
 
     builder
-        .clear_color_image(ClearColorImageInfo {
-            // bumpin' that
-            clear_value: ClearColorValue::Float([0.541, 0.808, 0.0, 1.0]),
-            ..ClearColorImageInfo::image(image.clone())
-        })
+        .bind_pipeline_compute(compute_pipeline.clone())
+        .unwrap()
+        .bind_descriptor_sets(
+            PipelineBindPoint::Compute,
+            compute_pipeline.layout().clone(),
+            0,
+            set,
+        )
+        .unwrap()
+        .dispatch([1024 / 8, 1024 / 8, 1])
         .unwrap()
         .copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(
             image.clone(),
-            image_buffer.clone()
-        )).unwrap();
+            image_buffer.clone(),
+        ))    
+        .unwrap();
 
     let command_buffer = builder.build().unwrap();
 
@@ -142,5 +218,6 @@ fn main() {
     let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
         1024, 1024, &buffer_content[..]
     ).unwrap();
-    image.save("image.png").unwrap();
+
+    image.save("image.png").expect("Error: failed to save image to .png file");
 }

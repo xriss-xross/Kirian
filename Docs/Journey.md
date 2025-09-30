@@ -327,6 +327,91 @@ image.save("image.png").unwrap();
 In the vulkano book, a Mandelbrot fractal shader is demonstrated. I don't fully undetstand GLSL yet
 so instead, I decided to go for something simpler: a sine wave. 
 
+## GLSL code:
+```c
+/*
+Declares the compute shader workgroup size so each workgroup has 8x8=64 threads.
+Image is 1024x1024 the GPU will dispatch 1024/8=128 groups for each dimension (twice)
+*/
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+/*
+Declares the output as a write-only 2D texture with the format rgba8 -> each pixel has 4 channels
+(Red, Green, Blue, Alpha) 8 bit each bound to descriptor set 0 binding 0
+*/
+layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
+
+void main() {
+    /*
+    Centering the pixel coordinate within a pixel and normalises the coordinates by dividing by
+    imageSize so (0, 0) -> (0, 0) and (1023, 1023) -> (0.9995, 0.9995) rougly
+    */
+    vec2 norm_coordinates = (gl_GlobalInvocationID.xy + vec2(0.5)) / vec2(imageSize(img));
+    
+    /*
+    Centers the normalised X coordinate into radians over (0, 2π) mapping the image width to one
+    full sine cycle
+    */
+    float x = norm_coordinates.x * 2 * 3.141592653589793;
+
+    /*
+    Computes the sine wave's Y coordinate at the current X. The base line is 0.5 (centers the image
+    vertically) and the amplitude is 0.4 (how high and low the peaks and troughs are). sin(x * 1.0)
+    means that there is only 1 full cycle across the whole image but can increase how many at will.
+    */
+    float y = 0.5 + 0.4 * sin(x * 1.0);
+
+    /*
+    Computes the vertical distance between the current Y coordinate and the sine wave's Y position
+    */
+    float d = abs(norm_coordinates.y - y);
+
+    /*
+    The intensity value as drawn from d. smoothstep(edge0, edge1, X) smoothly interpolates between
+    0.01 and 0.0. If d = 0 (exactly on the curve) then the intensity i will be 1.0 (white) but if
+    d >= 0.01 (further from the curve) then i = 0.0 (black). 
+    */
+    float i = smoothstep(0.01, 0.0, d);
+
+    /*
+    Packs the grayscale i into RGB with alpha always 1
+    */
+    vec4 to_write = vec4(vec3(i), 1.0);
+
+    imageStore(img, ivec2(gl_GlobalInvocationID.xy), to_write);
+}
+```
+## Executing the GLSL code
+The shader code now needs to be called. First we create an image:
+```rs
+let image = Image::new(
+    ...
+        usage: ImageUsage::TRANSFER_SRC
+        | ImageUsage::STORAGE,  // storage attribute is important
+        ..Default::default()
+    },
+    ...
+).unwrap();
+```
+To pass an image to a GPU shader, we need to create an `ImageView` which describes where and how the
+GPU should access or use an image. Here we want to view the entire image which is pretty basic:
+`let view = ImageView::new_default(image.clone()).unwrap();`. The descriptor set then takes the
+image view.
+```rs
+let set = PersistentDescriptorSet::new(
+    ...,
+    [WriteDescriptorSet::image_view(0, view.clone())],
+    [],
+)
+```
+Then we create a buffer storing the image output. The command buffer contains a dispatch command
+and then we save the image. This all results in:
+![Sine wave](images/image.png)
+The sine wave results in some slightly thicker parts at the peaks and troughs. I am not really sure
+why this is but this section is only really meant for demonstation purposes so I am not that fussed
+about it. These... *fragments?* are more a maths/GLSL problem than a vulkan problem so for now I
+will ignore.
+
 # Windows
 
 Every good graphics engine needs a window. To start this project I will be using
