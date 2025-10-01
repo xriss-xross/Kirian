@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use std::sync::Arc;
 
 use vulkano::VulkanLibrary;
@@ -15,7 +17,7 @@ use vulkano::memory::allocator::{
     StandardMemoryAllocator, AllocationCreateInfo, MemoryTypeFilter,
 };
 
-use vulkano::buffer::{subbuffer, BufferContents};
+use vulkano::buffer::BufferContents;
 use vulkano::buffer::{
     Buffer, BufferCreateInfo, BufferUsage,
 };
@@ -29,10 +31,8 @@ use vulkano::command_buffer::allocator::{
 };
 
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
 
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
-use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::vertex_input::{Vertex, VertexDefinition};
@@ -42,7 +42,7 @@ use vulkano::pipeline::graphics::multisample::MultisampleState;
 use vulkano::pipeline::graphics::rasterization::RasterizationState;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::{
-    ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout, PipelineShaderStageCreateInfo,
+    PipelineLayout, PipelineShaderStageCreateInfo,
 };
 
 use vulkano::render_pass::Subpass;
@@ -101,35 +101,6 @@ fn main() {
         depth_range: 0.0..=1.0,
     };
 
-    mod cs {
-        vulkano_shaders::shader! {
-            ty: "compute",
-            src: r"
-                #version 460
-
-                layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-
-                layout(set = 0, binding = 0, rgba8) uniform writeonly image2D img;
-
-                void main() {
-                    vec2 norm_coordinates = (gl_GlobalInvocationID.xy + vec2(0.5)) / vec2(imageSize(img));
-
-                    // π to 15 digits sufficient for calculations within our solar system
-                    float x = norm_coordinates.x * 2 * 3.141592653589793;
-
-                    float y = 0.5 + 0.4 * sin(x * 1.0);
-
-                    float d = abs(norm_coordinates.y - y);
-
-                    float i = smoothstep(0.01, 0.0, d);
-
-                    vec4 to_write = vec4(vec3(i), 1.0);
-                    imageStore(img, ivec2(gl_GlobalInvocationID.xy), to_write);
-                }
-            ",
-        }
-    }
-
     mod vs {
         vulkano_shaders::shader! {
             ty: "vertex",
@@ -154,30 +125,13 @@ fn main() {
 
                 void main() {
                     // bumpin' that
-                    f_color = vec4(0.541, 0.808, 0.0, 1.0);
+                    f_color = vec4(0.541, 0.808, 0.0, 0.0);
                 }",
         }
     }
 
-    let shader = cs::load(device.clone()).expect("Error: failed to create shader module");
     let vs = vs::load(device.clone()).expect("Error: failed to create vertex shader");
     let fs = fs::load(device.clone()).expect("Error: failed to create fragment shader");
-
-    let cs = shader.entry_point("main").unwrap();
-    let stage = PipelineShaderStageCreateInfo::new(cs);
-    let layout = PipelineLayout::new(
-        device.clone(),
-        PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
-            .into_pipeline_layout_create_info(device.clone())
-            .unwrap(),
-    )
-    .unwrap();
-
-    let compute_pipeline = ComputePipeline::new(
-        device.clone(),
-        None,
-        ComputePipelineCreateInfo::stage_layout(stage, layout),
-    ).expect("Error: failed to create compute pipeline");
 
     let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
 
@@ -202,15 +156,6 @@ fn main() {
 
     let descriptor_set_allocator =
         StandardDescriptorSetAllocator::new(device.clone(), Default::default());
-
-    let layout = compute_pipeline.layout().set_layouts().get(0).unwrap();
-
-    let set = PersistentDescriptorSet::new(
-        &descriptor_set_allocator,
-        layout.clone(),
-        [WriteDescriptorSet::image_view(0, view.clone())],
-        [],
-    ).unwrap();
 
     let image_buffer = Buffer::from_iter(
         memory_allocator.clone(),
@@ -237,9 +182,9 @@ fn main() {
     let vertex1 = MyVertex {
         position: [-0.5, -0.5] };
     let vertex2 = MyVertex {
-        position: [ -0.5, 0.5] };
+        position: [ 0.5, -0.5] };
     let vertex3 = MyVertex {
-        position: [ 0.5, 0.5] };
+        position: [ 0.0, 0.5] };
 
     let vertex_buffer = Buffer::from_iter(
         memory_allocator.clone(),
@@ -324,7 +269,6 @@ fn main() {
     };
 
 
-
     let command_buffer_allocator = StandardCommandBufferAllocator::new(
         device.clone(),
         StandardCommandBufferAllocatorCreateInfo::default(),
@@ -339,7 +283,7 @@ fn main() {
     builder
         .begin_render_pass(
             RenderPassBeginInfo { 
-                clear_values: vec![Some([1.0, 1.0, 1.0, 0.0].into())],
+                clear_values: vec![Some([0.541, 0.808, 0.0, 1.0].into())],
                 ..RenderPassBeginInfo::framebuffer(frame_buffer.clone())
             }, SubpassBeginInfo {
                 contents: SubpassContents::Inline,
@@ -355,12 +299,15 @@ fn main() {
             3, 1, 0, 0,
         ).unwrap()
         
-        .end_render_pass(SubpassEndInfo::default())
+        .end_render_pass(
+            SubpassEndInfo::default()
+        )
         .unwrap()
 
-        .copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(image, image_buffer.clone()))
+        .copy_image_to_buffer(
+            CopyImageToBufferInfo::image_buffer(image, image_buffer.clone())
+        )
         .unwrap();
-
 
     let command_buffer = builder.build().unwrap();
 
@@ -369,13 +316,20 @@ fn main() {
         .unwrap()
         .then_signal_fence_and_flush()
         .unwrap();
+    
+    let now = SystemTime::now();
+
     future.wait(None).unwrap();
+
+    let end = now.elapsed();
 
     let buffer_content = image_buffer.read().unwrap();
 
-    let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
+    let image_result = ImageBuffer::<Rgba<u8>, _>::from_raw(
         1024, 1024, &buffer_content[..]
-    ).unwrap();
+    ).expect("Error: could not create image from ImageBuffer");
 
-    image.save("image.png").expect("Error: failed to save image to .png file");
+    image_result.save("image.png").expect("Error: failed to save image to .png file");
+
+    println!("Process: {:?}", end);
 }

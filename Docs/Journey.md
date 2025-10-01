@@ -528,6 +528,83 @@ which takes a frame buffer, an enum and a Vec containing the colours to fill the
 as parameters. Nothing yet to show. We are entering a render pass and just exiting again without
 using the draw command.
 ## Creating the graphics pipeline
+```rs
+let pipeline = {
+    let vs = vs.entry_point("main").unwrap();
+    let fs = fs.entry_point("main").unwrap();
+
+    let vertex_input_state = MyVertex::per_vertex()
+        .definition(&vs.info().input_interface)
+        .unwrap();
+
+    let stages = [
+        PipelineShaderStageCreateInfo::new(vs),
+        PipelineShaderStageCreateInfo::new(fs),
+    ];
+
+    let layout = PipelineLayout::new(
+        device.clone(),
+        PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
+            .into_pipeline_layout_create_info(device.clone())
+            .unwrap(),
+    ).unwrap();
+
+    let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+
+    GraphicsPipeline::new(
+        device.clone(),
+        None,
+        GraphicsPipelineCreateInfo {
+            // the only stages we have right now are the vertex and fragment shaders
+            stages: stages.into_iter().collect(),
+            // flags the vertex input stage and how it should be have
+            vertex_input_state: Some(vertex_input_state),
+            // what primitive we are using (triangles are default)
+            input_assembly_state: Some(InputAssemblyState::default()),
+        
+            viewport_state: Some(ViewportState {
+                viewports: [viewport].into_iter().collect(),
+                ..Default::default()
+            }),
+
+            rasterization_state: Some(RasterizationState::default()),
+            multisample_state: Some(MultisampleState::default()),
+            color_blend_state: Some(ColorBlendState::with_attachment_states(
+            subpass.num_color_attachments(),
+            ColorBlendAttachmentState::default(),
+            )),
+
+            subpass: Some(subpass.into()),
+            ..GraphicsPipelineCreateInfo::layout(layout)
+        },
+    ).unwrap()
+};
+```
+We then pass this pipeline into a draw command alongside the vertex_buffer:
+```rs
+.bind_pipeline_graphics(pipeline.clone())
+.unwrap()
+.bind_vertex_buffers(0, vertex_buffer.clone())
+.unwrap()
+.draw(
+    // 3 verticies, 1 instance
+    3, 1, 0, 0,
+).unwrap()
+```
+And execute the command buffer just like we always have. Usign systime:
+```rs
+let now = SystemTime::now();
+
+future.wait(None).unwrap();
+
+let end = now.elapsed();
+```
+We can observe GPU execution time:
+1. Initial ms = ~240ms
+2. After warming up = ~5ms
+This second measurement is probably the steady state real running time of this program. The first
+measurement is likely due to the GPU waiting to be given resources by the CPU and things not being
+cached - very happy with the performance!
 
 # Windows
 Every good graphics engine needs a window. To start this project I will be using
